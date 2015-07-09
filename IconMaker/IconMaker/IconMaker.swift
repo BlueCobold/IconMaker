@@ -43,30 +43,60 @@ class IconMaker: NSObject {
     }
 
     func doMenuAction() {
-        if let originalImagePath = getOriginalImagePath(),
-            let originalImage = loadImageAtPath(originalImagePath),
-            let workspacePath = getWorkspacePath(),
-            let iconFolderPath = getIconFolderPath(workspacePath),
-            let iconJSONPath = getIconJSONPath(iconFolderPath),
-            let jsonDict = getJSONDict(iconJSONPath),
-            let imagesArray = jsonDict["images"] as? NSArray
+        let originalImagePath = getOriginalImagePath()
+        if originalImagePath == nil
+        {
+            showError("Image path not found.")
+            return
+        }
+        let originalImage = loadImageAtPath(originalImagePath!)
+        if originalImage == nil {
+            showError("Loading image failed.")
+            return
+        }
+        let workspacePath = getWorkspacePath()
+        if workspacePath == nil {
+            showError("Workspace path not found.")
+            return
+        }
+        let iconFolderPath = getIconFolderPath(workspacePath!)
+        if iconFolderPath == nil {
+            showError("*.xcasset not found or doesn't contain an AppIcon.")
+            return
+        }
+        let iconJSONPath = getIconJSONPath(iconFolderPath!)
+        if iconJSONPath == nil {
+            showError("Contents.json not found.")
+            return
+        }
+        let jsonDict = getJSONDict(iconJSONPath!)
+        if jsonDict == nil {
+            showError("JSON couldn't be read.")
+            return
+        }
+        if let imagesArray = jsonDict!["images"] as? NSArray
         {
             for singleImage in imagesArray {
                 if let si = singleImage as? NSMutableDictionary,
                     let size = si["size"] as? String,
                     let scale = si["scale"] as? String,
-                    let resultName = resizeImage(img: originalImage, stringSize: size, stringScale: scale, savePath: iconFolderPath) {
+                    let resultName = resizeImage(img: originalImage!, stringSize: size, stringScale: scale, savePath: iconFolderPath!) {
                         si["filename"] = resultName
                 }
             }
-            saveResultingIconJSON(jsonDict, savePath: iconJSONPath)
+            saveResultingIconJSON(jsonDict!, savePath: iconJSONPath!)
         } else {
             showError()
         }
     }
     
+    func showError(problem: String) {
+        let error = NSError(domain: "Something went wrong: " + problem, code:0, userInfo:nil)
+        NSAlert(error: error).runModal()
+    }
+    
     func showError() {
-        let error = NSError(domain: "Something went wrong :(", code:0, userInfo:nil)
+        let error = NSError(domain: "Something went wrong :((", code:0, userInfo:nil)
         NSAlert(error: error).runModal()
     }
     
@@ -120,8 +150,8 @@ class IconMaker: NSObject {
         if let list = NSFileManager.defaultManager().subpathsOfDirectoryAtPath(homeFolderPath as String, error: nil) as? [NSString] {
             for item in list {
                 println("item: \(item)")
-                if item.stringByDeletingPathExtension.lastPathComponent == "AppDelegate" {
-                    iconFolderPath = homeFolderPath.stringByAppendingPathComponent(item.stringByDeletingLastPathComponent).stringByAppendingPathComponent("Images.xcassets").stringByAppendingPathComponent("AppIcon.appiconset")
+                if item.pathExtension == "xcassets" {
+                    iconFolderPath = homeFolderPath.stringByAppendingPathComponent(item.stringByStandardizingPath).stringByAppendingPathComponent("AppIcon.appiconset")
                     break
                 }
             }
